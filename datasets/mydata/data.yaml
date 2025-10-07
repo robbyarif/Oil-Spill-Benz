@@ -1,0 +1,7 @@
+train: images/train
+val: images/val
+
+nc: 1
+names: ['oil spill']
+
+task: segment
