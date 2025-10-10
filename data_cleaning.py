@@ -3,6 +3,8 @@ import cv2
 from collections import defaultdict
 import shutil
 import numpy as np
+from networkx.algorithms.operators.binary import union
+from ultralytics.data.utils import polygons2masks
 
 def generate_txt():
     for file in os.listdir('Origin_Data/Drone'):
@@ -77,10 +79,10 @@ def make_group(image_dict):
         groups[key].append(filename)
     return list(groups.values())
 
-img_dict = {}
-for img_name in os.listdir('Origin_Data/Drone'):
-    img_path = os.path.join('Origin_Data/Drone', img_name)
-    img_dict[img_name] = cv2.imread(img_path, cv2.IMREAD_UNCHANGED)
-for group in make_group(img_dict):
-    if len(group) <= 1 : continue
-    print(group)
+
+
+def main():
+    return 0
+
+if __name__ == "__main__":
+    main()

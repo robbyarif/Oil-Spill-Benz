@@ -1,0 +1,7 @@
+Current Task:
+manually check the low iou images are incorrect or not
+
+Other Tasks:
+1. get metric corresponding to the paper
+2. adjust the hyperparameter
+3. adjust the implementation of augmentation(include augmentation in yolo itself)

@@ -5,6 +5,7 @@ from random import choice, sample
 import shutil
 import yaml
 import numpy as np
+from ultralytics.data.utils import polygons2masks, img2label_paths
 
 def check_dataset(dataset_name):
     dataset_path = os.path.join('datasets', dataset_name)
@@ -54,6 +55,7 @@ def create_dataset(new_dir_name, base_data_path, ratio):
         yaml.dump(yaml_content, file, sort_keys=False)
 
 def dataset_info(dataset_name):
+    total = [0, 0]
     for dir_type in ['train', 'val']:
         dir_path = os.path.join('datasets', dataset_name, 'labels', dir_type)
         mask, bgd = 0, 0
@@ -63,8 +65,10 @@ def dataset_info(dataset_name):
                 bgd += 1
             else:
                 mask += 1
-        print(f'{dir_type}: {mask} masks, {bgd} backgrounds', end=' ')
-    print()
+        total[0] += mask
+        total[1] += bgd
+        print(f'{dir_type}: {mask} masks, {bgd} backgrounds', end='; ')
+    print(f'total: {total[0]} masks, {total[1]} backgrounds')
 
 def augmentation(dataset_name):
     image_dir = os.path.join('datasets', dataset_name, 'images', 'train')
@@ -95,13 +99,60 @@ def augmentation(dataset_name):
         with open(os.path.join(label_dir, f'augment_'+label_name), 'w') as f:
             f.writelines(new_lines)
 
+def get_iou(pred_mask, gt_mask):
+    mask_inter = np.logical_and(pred_mask, gt_mask).sum()
+    mask_union = np.logical_or(pred_mask, gt_mask).sum()
+    return mask_inter / mask_union if mask_union > 0 else 1.0
+
+def contours2mask(sz, contours):
+    h, w = sz
+    polygons = []
+    for contour in contours:
+        if len(contour) < 3:
+            continue
+        contour = contour.astype(np.float32)
+        contour[:,0] *= w
+        contour[:,1] *= h
+        polygons.append(contour)
+    binary_masks = polygons2masks((h,w), polygons, 1)
+    final_mask = np.zeros((h,w), dtype=np.uint8)
+    for mask in binary_masks:
+        final_mask = cv2.bitwise_or(final_mask, mask)
+    return final_mask
+
+def add_color_mask(img, binary_mask, color='b'):
+    bgr = [0, 0, 0]
+    if color == 'b':
+        bgr = np.array([255, 0, 0], dtype=np.uint8)
+    elif color == 'g':
+        bgr = np.array([0, 255, 0], dtype=np.uint8)
+    elif color == 'r':
+        bgr = np.array([0, 0, 255], dtype=np.uint8)
+    binary_mask = np.stack([binary_mask * bgr[c] for c in range(3)], axis=-1)
+    return cv2.addWeighted(img, 1, binary_mask, 0.5, 0)
+
+def main():
+    img_path = 'Base_Data/Drone'
+    model = YOLO('runs/segment/train3/weights/best.pt')
+    results = model(img_path)
+    iou_stats = [0 for _ in range(11)]
+    for label, result in zip(os.listdir('Base_Data/Mask'),results):
+        img = result.orig_img
+        txt_path = os.path.join('Base_Data/Mask', label)
+        if result.masks:
+            pred_mask = contours2mask(img.shape[:2], result.masks.xyn)
+        else:
+            pred_mask = np.zeros(img.shape[:2], dtype=np.uint8)
+        contours = []
+        with open(txt_path, 'r') as f:
+            for line in f.readlines():
+                coords = list(map(float, line.strip().split()[1:]))
+                coords = np.array(coords).reshape(-1, 2)
+                contours.append(coords)
+        gt_mask = contours2mask(img.shape[:2], contours)
+        iou_stats[int(get_iou(pred_mask, gt_mask)*10)] += 1
+    print(iou_stats)
+    return 0
+
 if __name__ == "__main__":
-    dataset = 'augmentation'
-    dataset_info(dataset)
-    # create_dataset(dataset, 'Base_Data', 0.2)
-    # augmentation(dataset)
-    if check_dataset(dataset):
-        model = YOLO("yolo11n-seg.pt")
-        result = model.train(data=f"datasets/{dataset}/data.yaml", epochs=1, imgsz=640, batch=32, device=0, workers=8)
-    # model = YOLO('runs/segment/train2/weights/last.pt')
-    # model.val(data='datasets/without augmentation/data.yaml')
+    main()
