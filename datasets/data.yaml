@@ -1,0 +1,7 @@
+train: autosplit_train.txt
+val: autosplit_val.txt
+test: autosplit_test.txt
+nc: 1
+names:
+- oil spill
+task: segment
