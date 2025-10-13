@@ -5,7 +5,7 @@ from random import choice, sample
 import shutil
 import yaml
 import numpy as np
-from ultralytics.data.utils import polygons2masks, img2label_paths
+from ultralytics.data.utils import polygons2masks
 
 def check_dataset(dataset_name):
     dataset_path = os.path.join('datasets', dataset_name)
@@ -99,11 +99,6 @@ def augmentation(dataset_name):
         with open(os.path.join(label_dir, f'augment_'+label_name), 'w') as f:
             f.writelines(new_lines)
 
-def get_iou(pred_mask, gt_mask):
-    mask_inter = np.logical_and(pred_mask, gt_mask).sum()
-    mask_union = np.logical_or(pred_mask, gt_mask).sum()
-    return mask_inter / mask_union if mask_union > 0 else 1.0
-
 def contours2mask(sz, contours):
     h, w = sz
     polygons = []
@@ -131,14 +126,15 @@ def add_color_mask(img, binary_mask, color='b'):
     binary_mask = np.stack([binary_mask * bgr[c] for c in range(3)], axis=-1)
     return cv2.addWeighted(img, 1, binary_mask, 0.5, 0)
 
-def main():
-    img_path = 'Base_Data/Drone'
-    model = YOLO('runs/segment/train3/weights/best.pt')
+def count_iou(check=False):
+    img_path = 'datasets/new_dataset/images/val'
+    model = YOLO('runs/segment/train5/weights/last.pt')
     results = model(img_path)
+    mean_iou = 0
     iou_stats = [0 for _ in range(11)]
-    for label, result in zip(os.listdir('Base_Data/Mask'),results):
+    for label, result in zip(os.listdir('datasets/new_dataset/labels/val'),results):
         img = result.orig_img
-        txt_path = os.path.join('Base_Data/Mask', label)
+        txt_path = os.path.join('datasets/new_dataset/labels/val', label)
         if result.masks:
             pred_mask = contours2mask(img.shape[:2], result.masks.xyn)
         else:
@@ -150,8 +146,39 @@ def main():
                 coords = np.array(coords).reshape(-1, 2)
                 contours.append(coords)
         gt_mask = contours2mask(img.shape[:2], contours)
-        iou_stats[int(get_iou(pred_mask, gt_mask)*10)] += 1
+        mask_inter = np.logical_and(pred_mask, gt_mask).sum()
+        mask_union = np.logical_or(pred_mask, gt_mask).sum()
+        if mask_union == 0: continue
+        iou = mask_inter / mask_union
+        mean_iou += iou
+        iou_stats[int(iou*10)] += 1
+        if check and iou < 0.1:
+            pred_img = add_color_mask(img, pred_mask,'r')
+            gt_img = add_color_mask(img, gt_mask)
+            check_img = np.concatenate((gt_img, pred_img), axis=1)
+            cv2.imwrite(f'Check/{label.split('.')[0]}.jpg', check_img)
+    mean_iou /= sum(iou_stats)
     print(iou_stats)
+    print(mean_iou)
+    return 0
+
+def main():
+    dataset_name = 'new_dataset'
+    model = YOLO('yolo11n-seg.pt')
+    model.train(
+        data="datasets/new_dataset/data.yaml",
+        epochs=100,
+        imgsz=1024,
+        batch=8,
+        device=0,
+        optimizer="AdamW",
+        lr0=0.001,
+        box=1.0,
+        cls=0.2,
+        dfl=0.5,
+        cache="ram"
+    )
+    count_iou()
     return 0
 
 if __name__ == "__main__":
