@@ -1,6 +1,2 @@
 Current Task:
-1. Complete the model train/val/test architecture
-2. get metric corresponding to the paper
-Other Tasks:
-1. adjust the hyperparameter by model.fine()
-2. Redo the data augmentation process.
+Do the custom annotation(true color, sheen, rainbow).

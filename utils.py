@@ -6,6 +6,7 @@ from ultralytics.data.utils import polygons2masks, IMG_FORMATS, img2label_paths
 import cv2
 import random
 from ultralytics.utils import LOGGER, TQDM
+import albumentations as A
 
 def split(source_path, weights, annotated_only=False, random_state=None):
     """
@@ -26,19 +27,73 @@ def split(source_path, weights, annotated_only=False, random_state=None):
     for i, img in TQDM(zip(indices, files), total=n):
         if not annotated_only or Path(img2label_paths([str(img)])[0]).exists():
             with open(path.parent / txt[i], "a", encoding="utf-8") as f:
-                f.write(f"./{img.relative_to(path.parent).as_posix()}" + "\n")
+                f.write(f"datasets/{img.relative_to(path.parent).as_posix()}" + "\n")
 
-def create_dataset(ratio=(0.6, 0.2, 0.2),*, save=False, name=None, random_state=None):
+def augmentation(dataset, new_dataset="", aug_num = 1):
+    path = f'datasets/{dataset}'
+    if new_dataset != "":
+        src = f'datasets/{dataset}'
+        dst = f'datasets/{new_dataset}'
+        os.mkdir(dst)
+        for ty in ['train', 'val', 'test']:
+            shutil.copy(f'{src}/autosplit_{ty}.txt', f'{dst}/autosplit_{ty}.txt')
+        path = dst
+    path = os.path.join(path, 'autosplit_train.txt')
+
+    transform = A.Compose([
+        A.Blur(blur_limit=3, p=0.3),  # 模糊度
+        A.HueSaturationValue(
+            hue_shift_limit=10,
+            sat_shift_limit=50,
+            val_shift_limit=40,
+            p=0.6
+        ),
+        A.RandomBrightnessContrast(
+            brightness_limit=(-0.33, 0.5),
+            contrast_limit=0.3,
+            p=0.5
+        ),
+        A.HorizontalFlip(p=0.5)
+    ])
+
+    with open(path, 'r') as f:
+        lines = f.readlines()
+    new_files = []
+    for line in lines:
+        image = line.strip()
+        file_root, img_type = image.split('.')
+        label = file_root + '.txt'
+        if os.path.getsize(label) == 0:
+            continue
+        contours = yolo_label2contours(label)
+        img = cv2.imread(image, cv2.IMREAD_UNCHANGED)
+        mask = contours2mask(contours, img.shape[:2])
+        for i in range(aug_num):
+            aug = transform(image=img, mask=mask)
+            new_file_root = file_root.replace('source', 'augment') + f'_augment{i}'
+            new_image = new_file_root + '.' + img_type
+            new_label = new_file_root + '.txt'
+            cv2.imwrite(new_image, aug['image'])
+            mask2yolo_label(aug['mask'], new_label)
+            new_files.append(new_image)
+    with open(path, 'a') as f:
+        for file in new_files:
+            f.write(file + '\n')
+
+
+def create_dataset(source='source_data',ratio=(0.6, 0.2, 0.2),*, save=False, name=None, random_state=None):
     """
     Automatically split a dataset into train/val/test splits and save the resulting splits into autosplit_*.txt files
     create data.yaml for yolo model to get train, val and test data in source_data folder
     args:
+        source (str): the name of source data folder selected to use
         ratio (tuple): the weight of train, val and test dataset
         save (bool): save to a new folder
         name (str|None): user defined folder name
         random_state (int|None): use for setting random seed
     """
-    split(Path('datasets/source_data'), ratio, annotated_only=True, random_state=random_state)
+    path = os.path.join('datasets', source)
+    split(path, ratio, annotated_only=True, random_state=random_state)
     if not save: return
     temp = 0
     if name is None:
@@ -83,7 +138,7 @@ def dataset_info(name=None):
         stats[cur_type] = [0, 0]
         cur_path = os.path.join(path, f'autosplit_{cur_type}.txt')
         with open(cur_path, 'r') as f:
-            file_paths = ['datasets'+line.split('.')[1]+'.txt' for line in f.readlines()]
+            file_paths = [line.strip().split('.')[0]+'.txt' for line in f.readlines()]
         for file in file_paths:
             spill = int(os.path.getsize(file) != 0)
             stats[cur_type][spill] += 1
@@ -91,35 +146,46 @@ def dataset_info(name=None):
     for cur_type in ['total', 'train', 'val', 'test']:
         print(f'{stats[cur_type][0] + stats[cur_type][1]:3} {cur_type:>5} images: {stats[cur_type][1]:3} oil spill, {stats[cur_type][0]:3} no oil spill')
 
-def mask2yolo_label(src, dst):
+def mask2yolo_label(mask, dst):
     """
     convert a mask to the yolo detection annotation
     args:
-        src (str|Path): the path of the mask
+        mask (ndarray): a 2D binary mask
         dst (str|Path): the path of the new yolo label txt file
     """
-    if os.path.exists(src):
-        print(f'{src} do not exist!')
-        return
     with open(dst, 'w') as f:
-        mask = cv2.imread(src, cv2.IMREAD_COLOR_BGR)
-        binary_mask = np.array((mask[:, :, 0] == 255), dtype=np.uint8)
         h, w = mask.shape[:2]
-        contours, _ = cv2.findContours(binary_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         for contour in contours:
             if len(contour) < 3:
                 continue
-            contour = contour.reshape(-1, 2).astype(np.float32)
+            contour = contour.reshape(-1, 2).astype(np.float64)
             contour[:, 0] = contour[:, 0] / w
             contour[:, 1] = contour[:, 1] / h
             line = "0 " + " ".join([f"{x:.6f} {y:.6f}" for x, y in contour]) + "\n"
             f.write(line)
 
-def contour2mask(contours, sz):
+def yolo_label2contours(label):
+    """
+    args:
+        label (str): the path of yolo label file(txt file).
+    return:
+        contours (list): a list of ndarray, each ndarray is the mask contour in format [[x1, y1],..., [xn,yn]]
+    """
+    contours = []
+    with open(label, 'r') as f:
+        lines = f.readlines()
+    for line in lines:
+        contour = np.array([float(i) for i in line.strip().split()[1:]])
+        contour = contour.reshape(-1,2)
+        contours.append(contour)
+    return contours
+
+def contours2mask(contours, sz):
     """
     convert coordinates of contour points to binary mask
     args:
-        contours (list): a list of ndarray, each ndarray is the mask contour in format [[x1, y1],..., [xn,yn]]
+        contours (list): a list of ndarray, each ndarray is the mask contour in uniform format [[x1, y1],..., [xn,yn]]
         sz (tuple): the height and weight of the image
     return:
         final_mask (ndarray): a 2D binary mask
@@ -129,7 +195,7 @@ def contour2mask(contours, sz):
     for contour in contours:
         if len(contour) < 3:
             continue
-        contour = contour.astype(np.float32)
+        contour = contour.astype(np.float64)
         contour[:,0] *= w
         contour[:,1] *= h
         polygons.append(contour)

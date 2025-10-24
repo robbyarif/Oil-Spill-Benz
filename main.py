@@ -1,39 +1,58 @@
 from ultralytics import YOLO
+import argparse
 from utils import*
 
+def get_args():
+    parser = argparse.ArgumentParser(description='custom train parameter')
+    parser.add_argument("--dataset", type=str, help="the dataset used to train")
+    parser.add_argument("--epochs", type=int, default=200)
+    parser.add_argument("--img_sz", type=int, default=1024)
+    parser.add_argument("--batch", type=int, default=16)
+    parser.add_argument("--optimizer", type=str, default="SGD")
+    parser.add_argument("--lr0", type=float, default=0.005)
+    parser.add_argument("--name", type=str, help="the name of the folder to save results")
+    parser.add_argument("--conf", type=float, default=0.1, help="the confidence threshold for testing")
+    args = parser.parse_args()
+    if args.dataset:
+        set_dataset(args.dataset)
+    if not args.name:
+        temp = 0
+        while os.path.exists(f'runs/segment/train_{temp}'):
+            temp += 1
+        args.name = f'train_{temp}'
+    return args
+
 def main():
+    args = get_args()
+    # Train
     model = YOLO('yolo11n-seg.pt')
     model.train(
-        data="datasets/data.yaml",
-        epochs=200,
-        imgsz=1024,
-        batch=8,
-        device=0,
-        optimizer="AdamW",
-        lr0=0.0005,
-        weight_decay=0.001,
-        box=1.5,
-        cls=1.0,
-        dfl=0.5,
+        data = "datasets/data.yaml",
+        epochs = args.epochs,
+        imgsz = args.img_sz,
+        batch = args.batch,
+        optimizer = args.optimizer,
+        lr0 = args.lr0,
+        box = 6,
+        device = 0,
+        workers = 8,
+        name = args.name
     )
-    return 0
-
-if __name__ == "__main__":
+    # Test
     with open('datasets/autosplit_test.txt', 'r') as f:
-        image_paths = [line.strip().replace('./', 'datasets/') for line in f.readlines()]
-    best_model = YOLO('runs/segment/train14/weights/best.pt')
-    iou = 0
+        image_paths = [line.strip() for line in f.readlines()]
+    best_model = YOLO(f'runs/segment/{args.name}/weights/best.pt')
+    total_iou = 0
     num = 0
     for img_path in image_paths:
         label_path = img_path.split('.')[0]+'.txt'
-        result = best_model(img_path)[0]
-        if not hasattr(result, 'masks') or result.masks is None:
-            continue
-        img = result.orig_img
+        result = best_model(img_path, conf=args.conf, verbose=False)[0]
         sz = result.orig_shape
         # get predict mask
-        contours = result.masks.xyn
-        pred_mask = contour2mask(contours, sz)
+        pred_mask = np.zeros(sz, dtype=np.uint8)
+        if hasattr(result, 'masks') and result.masks is not None:
+            contours_pred = result.masks.xyn
+            pred_mask = contours2mask(contours_pred, sz)
         # get ground truth mask
         contours = []
         with open(label_path, 'r') as f:
@@ -42,15 +61,23 @@ if __name__ == "__main__":
             coords = list(map(float, line.strip().split()[1:]))
             contour = np.array(coords, dtype=np.float32).reshape(-1, 2)
             contours.append(contour)
-        gt_mask = contour2mask(contours, sz)
+        gt_mask = contours2mask(contours, sz)
         # count iou
         mask_inter = np.logical_and(pred_mask, gt_mask).sum()
         mask_union = np.logical_or(pred_mask, gt_mask).sum()
         if mask_union == 0:
             continue
-        iou += mask_inter / mask_union
+        total_iou += mask_inter / mask_union
         num += 1
-    best_model.val(data='datasets/data.yaml', split='test', device='0')
-    mean_iou = iou/num
-    dc = 2*mean_iou/(1+mean_iou)
-    print(f'iou = {mean_iou:.3f}, dc = {dc:.3f}')
+    metrics = best_model.val(data='datasets/data.yaml', split='test', device='0', conf=args.conf).summary()[0]
+    iou = total_iou / num
+    metrics['iou'] = iou
+    metrics['dc'] = 2 * iou / (1 + iou)
+    metrics_list = ['Box-P', 'Box-R', 'Box-F1', 'Mask-P', 'Mask-R', 'Mask-F1', 'iou', 'dc']
+    print('-' * 40 + 'Result' + '-' * 40)
+    print(f'Dataset: {args.dataset} conf: {args.conf}')
+    print(' '.join(f'{m:>10s}' for m in metrics_list))
+    print(' '.join(f'{metrics[m]:>10.3f}' for m in metrics_list))
+if __name__ == "__main__":
+    main()
+
