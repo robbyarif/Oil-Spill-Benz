@@ -1,2 +1,1 @@
 Current Task:
-Do the custom annotation(true color, sheen, rainbow).

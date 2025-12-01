@@ -1,6 +1,11 @@
+import os.path
+import cv2
 from ultralytics import YOLO
 import argparse
 from utils import*
+
+class WARNING(Exception):
+    pass
 
 def get_args():
     parser = argparse.ArgumentParser(description='custom train parameter')
@@ -9,12 +14,20 @@ def get_args():
     parser.add_argument("--img_sz", type=int, default=1024)
     parser.add_argument("--batch", type=int, default=16)
     parser.add_argument("--optimizer", type=str, default="SGD")
-    parser.add_argument("--lr0", type=float, default=0.005)
+    parser.add_argument("--lr0", type=float, default=0.01)
     parser.add_argument("--name", type=str, help="the name of the folder to save results")
-    parser.add_argument("--conf", type=float, default=0.1, help="the confidence threshold for testing")
+    parser.add_argument("--conf", type=float, default=0.7, help="the confidence threshold for testing")
     args = parser.parse_args()
-    if args.dataset:
-        set_dataset(args.dataset)
+    try:
+        if not args.dataset:
+            raise WARNING("please choose a dataset.")
+        elif not os.path.exists(f"datasets/{args.dataset}/data.yaml"):
+            raise WARNING(f"dataset \"{args.dataset}\" doesn't exist or loss a data.yaml file.")
+        else:
+            args.dataset = f"datasets/{args.dataset}/data.yaml"
+    except WARNING as e:
+        print("WARNING:", e)
+        exit()
     if not args.name:
         temp = 0
         while os.path.exists(f'runs/segment/train_{temp}'):
@@ -27,7 +40,7 @@ def main():
     # Train
     model = YOLO('yolo11n-seg.pt')
     model.train(
-        data = "datasets/data.yaml",
+        data = args.dataset,
         epochs = args.epochs,
         imgsz = args.img_sz,
         batch = args.batch,
@@ -36,48 +49,10 @@ def main():
         box = 6,
         device = 0,
         workers = 8,
-        name = args.name
+        name = args.name,
+        plots = False
     )
-    # Test
-    with open('datasets/autosplit_test.txt', 'r') as f:
-        image_paths = [line.strip() for line in f.readlines()]
-    best_model = YOLO(f'runs/segment/{args.name}/weights/best.pt')
-    total_iou = 0
-    num = 0
-    for img_path in image_paths:
-        label_path = img_path.split('.')[0]+'.txt'
-        result = best_model(img_path, conf=args.conf, verbose=False)[0]
-        sz = result.orig_shape
-        # get predict mask
-        pred_mask = np.zeros(sz, dtype=np.uint8)
-        if hasattr(result, 'masks') and result.masks is not None:
-            contours_pred = result.masks.xyn
-            pred_mask = contours2mask(contours_pred, sz)
-        # get ground truth mask
-        contours = []
-        with open(label_path, 'r') as f:
-            lines = f.readlines()
-        for line in lines:
-            coords = list(map(float, line.strip().split()[1:]))
-            contour = np.array(coords, dtype=np.float32).reshape(-1, 2)
-            contours.append(contour)
-        gt_mask = contours2mask(contours, sz)
-        # count iou
-        mask_inter = np.logical_and(pred_mask, gt_mask).sum()
-        mask_union = np.logical_or(pred_mask, gt_mask).sum()
-        if mask_union == 0:
-            continue
-        total_iou += mask_inter / mask_union
-        num += 1
-    metrics = best_model.val(data='datasets/data.yaml', split='test', device='0', conf=args.conf).summary()[0]
-    iou = total_iou / num
-    metrics['iou'] = iou
-    metrics['dc'] = 2 * iou / (1 + iou)
-    metrics_list = ['Box-P', 'Box-R', 'Box-F1', 'Mask-P', 'Mask-R', 'Mask-F1', 'iou', 'dc']
-    print('-' * 40 + 'Result' + '-' * 40)
-    print(f'Dataset: {args.dataset} conf: {args.conf}')
-    print(' '.join(f'{m:>10s}' for m in metrics_list))
-    print(' '.join(f'{metrics[m]:>10.3f}' for m in metrics_list))
+
 if __name__ == "__main__":
     main()
 

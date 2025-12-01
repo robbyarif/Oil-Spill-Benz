@@ -1,53 +1,74 @@
-import os
-import cv2
 from ultralytics import YOLO
 from utils import *
+import os
+from tqdm import tqdm
+
+def analyze_results(model, src, dst):
+    metrics = {}
+
+    val_metric = model.val(data=f"{src}/data.yaml", verbose=False, save=False)
+    precision = val_metric.results_dict['metrics/precision(M)']
+    recall = val_metric.results_dict['metrics/recall(M)']
+    f1 = 2 * (precision * recall) / (precision + recall)
+    metrics["Precision"], metrics["Recall"], metrics["F1"] = precision, recall, f1
+
+    results = model.predict(source=f"{src}/images/test")
+    acc = 0
+    oil_iou, bg_iou = 0, 0
+    oil_num, bg_num = 0, 0
+    for result in tqdm(results, total=len(results), desc="Analyzing Results"):
+        img_sz = result.orig_shape
+        img_name = os.path.basename(result.path)
+
+        # Get model predicts contours
+        pred_contours = []
+        if hasattr(result, 'masks') and result.masks is not None:
+            pred_contours = result.masks.xy
+
+        # Get ground truth contours
+        sa, sb = f"{os.sep}images{os.sep}", f"{os.sep}labels{os.sep}"
+        label_path = sb.join(result.path.rsplit(sa, 1)).rsplit(".", 1)[0] + ".txt"
+        gt_contours = yolo_label2contours(label_path, img_sz)
+
+        pred_mask = contours2mask(pred_contours, img_sz)
+        gt_mask = contours2mask(gt_contours, img_sz)
+
+        acc += get_acc(pred_mask, gt_mask)
+
+        # Calculate oil and background IoU
+        oil_buf, bg_buf = get_iou(pred_mask, gt_mask)
+        if oil_buf is not None:
+            oil_iou += oil_buf
+            oil_num += 1
+        if bg_buf is not None:
+            bg_iou += bg_buf
+            bg_num += 1
+
+        # Draw coded mask
+        colors = [
+            # channel = (B, G, R)
+            (0, 255, 0),  # TP
+            (0, 0, 255),  # FP
+            (0, 255, 255),  # FN
+            (128, 128, 128)  # TN
+        ]
+        coded_mask = get_coded_mask(pred_mask, gt_mask, colors)
+        img_dst = os.path.join(dst, f"IoU={oil_buf:.3f}_{img_name}")
+        cv2.imwrite(img_dst, coded_mask)
+
+    acc /= len(results)
+    oil_iou = oil_iou / oil_num if oil_num else None
+    bg_iou = bg_iou / bg_num if bg_num else None
+    mean_iou = (oil_iou + bg_iou) / 2
+    metrics["Acc"], metrics["Oil Iou"], metrics["BG IoU"], metrics["mIoU"] = acc, oil_iou, bg_iou, mean_iou
+    return metrics
 
 def main():
-    conf = 0.25
-    dataset_name = 'augment_down_sample'
-    with open(f'datasets/{dataset_name}/autosplit_test.txt', 'r') as f:
-        image_paths = [line.strip() for line in f.readlines()]
-    best_model = YOLO(f'runs/segment/{dataset_name}/weights/best.pt')
-    total_iou = 0
-    num = 0
-    for img_path in image_paths:
-        label_path = img_path.split('.')[0] + '.txt'
-        result = best_model(img_path, conf=conf, verbose=False)[0]
-        sz = result.orig_shape
-        # get predict mask
-        pred_mask = np.zeros(sz, dtype=np.uint8)
-        if hasattr(result, 'masks') and result.masks is not None:
-            contours_pred = result.masks.xyn
-            pred_mask = contours2mask(contours_pred, sz)
-        # get ground truth mask
-        contours = []
-        with open(label_path, 'r') as f:
-            lines = f.readlines()
-        for line in lines:
-            coords = list(map(float, line.strip().split()[1:]))
-            contour = np.array(coords, dtype=np.float32).reshape(-1, 2)
-            contours.append(contour)
-        gt_mask = contours2mask(contours, sz)
-        # count iou
-        mask_inter = np.logical_and(pred_mask, gt_mask).sum()
-        mask_union = np.logical_or(pred_mask, gt_mask).sum()
-        if mask_union == 0:
-            continue
-        total_iou += mask_inter / mask_union
-        num += 1
-    metrics = best_model.val(data='datasets/data.yaml', split='test', device='0', conf=conf, verbose=False).summary()[0]
-    iou = total_iou / num
-    metrics['iou'] = iou
-    metrics['dc'] = 2 * iou / (1 + iou)
-    metrics_list = ['Box-P', 'Box-R', 'Box-F1', 'Mask-P', 'Mask-R', 'Mask-F1', 'iou', 'dc']
-    print('-'*40 + 'Result' + '-'*40)
-    print(f'Dataset: {dataset_name} ')
-    print(' '.join(f'{m:>10s}' for m in metrics_list))
-    print(' '.join(f'{metrics[m]:>10.3f}' for m in metrics_list))
+    model = YOLO("runs/segment/baseline/weights/best.pt")
+    metrics = analyze_results(model, src="datasets/baseline", dst="runs/predict/baseline")
+    for metric, value in metrics.items():
+        print(f"{metric}: {value:.3f}")
     return 0
 
 if __name__ == "__main__":
-    for i in range(2, 5):
-        print(f'augment_{i}x:')
-        dataset_info(f'augment_{i}x')
+    main()
