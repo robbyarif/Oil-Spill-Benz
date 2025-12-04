@@ -90,6 +90,23 @@ def get_iou(pred_mask, gt_mask):
 
     return oil_iou, bg_iou
 
+def get_f1(pred_mask, gt_mask):
+    """
+    calculate the f1 score of the model predicted mask and the ground truth mask
+    args:
+        pred_mask (ndarray): the binary mask predicted by model
+        gt_mask (ndarray): the binary ground truth mask
+    return:
+        f1 (float): the f1 score
+    """
+    TP = ((pred_mask == 1) & (gt_mask == 1)).sum()
+    FP = ((pred_mask == 1) & (gt_mask == 0)).sum()
+    FN = ((pred_mask == 0) & (gt_mask == 1)).sum()
+    if (TP + FP + FN) == 0:
+        return None
+    else:
+        return 2 * TP / (2 * TP + FP + FN)
+
 def get_coded_mask(pred_mask, gt_mask, colors):
     """
     create a mask that each pixel denotes the (TP, FP, FN, TN) of  model predicted mask and ground truth mask by different colors

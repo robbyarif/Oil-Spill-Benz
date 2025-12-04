@@ -1,8 +1,6 @@
 import os.path
-import cv2
 from ultralytics import YOLO
 import argparse
-from utils import*
 
 class WARNING(Exception):
     pass
@@ -37,8 +35,8 @@ def get_args():
 
 def main():
     args = get_args()
-    # Train
     model = YOLO('yolo11n-seg.pt')
+
     model.train(
         data = args.dataset,
         epochs = args.epochs,

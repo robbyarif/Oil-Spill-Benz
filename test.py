@@ -4,16 +4,11 @@ import os
 from tqdm import tqdm
 
 def analyze_results(model, src, dst):
-    metrics = {}
-
-    val_metric = model.val(data=f"{src}/data.yaml", verbose=False, save=False)
-    precision = val_metric.results_dict['metrics/precision(M)']
-    recall = val_metric.results_dict['metrics/recall(M)']
-    f1 = 2 * (precision * recall) / (precision + recall)
-    metrics["Precision"], metrics["Recall"], metrics["F1"] = precision, recall, f1
-
     results = model.predict(source=f"{src}/images/test")
+    os.makedirs(dst)
+    metrics = {}
     acc = 0
+    f1, f1_num = 0, 0
     oil_iou, bg_iou = 0, 0
     oil_num, bg_num = 0, 0
     for result in tqdm(results, total=len(results), desc="Analyzing Results"):
@@ -33,9 +28,14 @@ def analyze_results(model, src, dst):
         pred_mask = contours2mask(pred_contours, img_sz)
         gt_mask = contours2mask(gt_contours, img_sz)
 
+        # compute the metrics
         acc += get_acc(pred_mask, gt_mask)
 
-        # Calculate oil and background IoU
+        f1_buf = get_f1(pred_mask, gt_mask)
+        if f1_buf is not None:
+            f1 += f1_buf
+            f1_num += 1
+
         oil_buf, bg_buf = get_iou(pred_mask, gt_mask)
         if oil_buf is not None:
             oil_iou += oil_buf
@@ -56,18 +56,20 @@ def analyze_results(model, src, dst):
         img_dst = os.path.join(dst, f"IoU={oil_buf:.3f}_{img_name}")
         cv2.imwrite(img_dst, coded_mask)
 
-    acc /= len(results)
-    oil_iou = oil_iou / oil_num if oil_num else None
-    bg_iou = bg_iou / bg_num if bg_num else None
-    mean_iou = (oil_iou + bg_iou) / 2
-    metrics["Acc"], metrics["Oil Iou"], metrics["BG IoU"], metrics["mIoU"] = acc, oil_iou, bg_iou, mean_iou
+    metrics["Acc"] = acc / len(results)
+    metrics["F1"] = f1 / f1_num if f1_num else None
+    metrics["Oil IoU"] = oil_iou / oil_num if oil_num else None
+    metrics["BG IoU"] = bg_iou / bg_num if bg_num else None
+    metrics["mIoU"] = (metrics["Oil IoU"] + metrics["BG IoU"]) / 2
+
     return metrics
 
 def main():
     model = YOLO("runs/segment/baseline/weights/best.pt")
-    metrics = analyze_results(model, src="datasets/baseline", dst="runs/predict/baseline")
+    metrics = analyze_results(model, src="datasets/baseline_seed_42", dst="runs/predict/baseline_seed_42")
+    max_len = max(map(len, metrics.keys()))
     for metric, value in metrics.items():
-        print(f"{metric}: {value:.3f}")
+        print(f"{metric:>{max_len}} : {value:.3f}")
     return 0
 
 if __name__ == "__main__":
