@@ -5,7 +5,7 @@ from tqdm import tqdm
 
 def analyze_results(model, src, dst):
     results = model.predict(source=f"{src}/images/test")
-    os.makedirs(dst)
+    os.makedirs(dst, exist_ok=True)
     metrics = {}
     acc = 0
     f1, f1_num = 0, 0
@@ -66,7 +66,7 @@ def analyze_results(model, src, dst):
 
 def main():
     model = YOLO("runs/segment/baseline/weights/best.pt")
-    metrics = analyze_results(model, src="datasets/baseline_seed_42", dst="runs/predict/baseline_seed_42")
+    metrics = analyze_results(model, src="datasets/baseline", dst="runs/predict/baseline")
     max_len = max(map(len, metrics.keys()))
     for metric, value in metrics.items():
         print(f"{metric:>{max_len}} : {value:.3f}")
