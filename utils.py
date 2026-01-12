@@ -1,5 +1,6 @@
+import os
 import numpy as np
-from ultralytics.data.utils import polygons2masks, IMG_FORMATS, img2label_paths
+from ultralytics.data.utils import polygons2masks
 import cv2
 
 def mask2yolo_label(mask, dst):
@@ -126,3 +127,16 @@ def get_coded_mask(pred_mask, gt_mask, colors):
     for cls, color in zip([TP, FP, FN, TN], colors):
         coded_mask[cls] = color
     return coded_mask
+
+def read_img(path, flags=cv2.IMREAD_COLOR):
+    """
+    used for replacing cv2.imread since the function will fail when path contains chinese.
+    """
+    data = np.fromfile(path, dtype=np.uint8)
+    img = cv2.imdecode(data, flags)
+    return img
+
+def image2label(img_path, lbl_ext=".png"):
+    label_path = img_path.replace(f"{os.sep}images{os.sep}", f"{os.sep}labels{os.sep}")
+    label_path = label_path.rsplit(".", 1)[0] + lbl_ext
+    return label_path
