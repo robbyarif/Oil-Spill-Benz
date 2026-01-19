@@ -1,5 +1,3 @@
-from ray.train.examples.mlflow_simple_example import trainer
-
 # Oil Spill Project
 
 ---

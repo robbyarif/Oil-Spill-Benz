@@ -91,12 +91,7 @@ class YoloTrainer(BaseTrainer):
             self.results.append((img_name, pred_mask, gt_mask))
 
 def main():
-    src = r"datasets\new_baseline"
-    dst = r"foo\test"
-
-    trainer = YoloTrainer()
-    trainer.load_model(version=11)
-    trainer.train(src, epochs=3, save=False)
+    ...
 
 if __name__ == "__main__":
     main()

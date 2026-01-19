@@ -169,10 +169,6 @@ class DeeplabTrainer(BaseTrainer):
         loss_record = []
         best_loss = float("inf")
 
-        if save:
-            weight_path = os.path.join(dst, "weights")
-            os.makedirs(weight_path, exist_ok=True)
-
         for epoch in range(args["epochs"]):
             print(f"Training Epoch {epoch + 1}:")
             train_loss = train(self.model, loss_fn, train_loader, optimizer, device, scaler)
@@ -180,9 +176,11 @@ class DeeplabTrainer(BaseTrainer):
             loss_record.append((train_loss, val_loss))
             scheduler.step()
 
+            if val_loss < best_loss:
+                best_loss = val_loss
+
             if save and val_loss < best_loss:
                 torch.save(self.model.state_dict(), os.path.join(dst, "weights", "best.pt"))
-            best_loss = val_loss
 
             print(f"Train loss: {train_loss:.3f}, Valid loss: {val_loss:.3f}")
 
@@ -250,13 +248,7 @@ class DeeplabTrainer(BaseTrainer):
             self.results.append((img_name, pred_mask, gt_mask))
 
 def main():
-    src = r"datasets\new_baseline"
-    dst = r"foo\deeplab"
-
-    trainer = DeeplabTrainer()
-    trainer.load_model()
-    trainer.train(src, dst, epochs=3)
-    trainer.test(src, dst)
+    ...
 
 if __name__ == "__main__":
     main()

@@ -30,6 +30,10 @@ class BaseTrainer(ABC):
         if save and dst is None:
             raise Exception("dst can't be None to save the model weights.")
 
+        if save:
+            weight_path = os.path.join(dst, "weights")
+            os.makedirs(weight_path, exist_ok=True)
+
         self._train(src, dst, save, **kwargs)
 
     def test(self, src, dst=None, * ,file_name="test.txt", color_coded=False, log=True, save=True):
@@ -164,9 +168,9 @@ class BaseTrainer(ABC):
         max_len = max(map(len, metrics.keys()))
         for metric, value in metrics.items():
             if is_std:
-                print(f"{metric:>{max_len}} : {value[0]:.3f} ± {value[1]:.3f}")
+                print(f"{metric:>{max_len}} : {(value[0] or 0):.3f} ± {(value[1] or 0):.3f}")
             else:
-                print(f"{metric:>{max_len}} : {value:.3f}")
+                print(f"{metric:>{max_len}} : {(value or 0):.3f}")
 
 def main():
     ...
