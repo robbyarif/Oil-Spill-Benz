@@ -9,7 +9,7 @@ import torchvision.transforms.functional as TF
 from torch.amp import autocast, GradScaler
 from utils import read_img, image2label
 import csv
-from main import BaseTrainer
+from trainer import BaseTrainer
 
 class OilDataset(Dataset):
     def __init__(self, data_file, image_size=512):

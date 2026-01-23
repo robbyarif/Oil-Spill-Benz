@@ -3,7 +3,7 @@ import shutil
 import yaml
 from ultralytics import YOLO
 import numpy as np
-from main import BaseTrainer
+from trainer import BaseTrainer
 from utils import contours2mask, yolo_label2contours, image2label
 
 class YoloTrainer(BaseTrainer):
@@ -34,10 +34,10 @@ class YoloTrainer(BaseTrainer):
             raise Exception(f"Not support YOLO version {version}.")
 
     def _train(self, src, dst=None, save=True, **kwargs):
-        train_file = os.path.join(src, "train.txt")
-        valid_file = os.path.join(src, "val.txt")
-
         args = {**self.train_args, **kwargs}
+
+        train_file = src + "/" + "train.txt"
+        valid_file = src + "/" + "val.txt"
 
         yaml_path = "data.yaml"
         with open(yaml_path, "w") as f:

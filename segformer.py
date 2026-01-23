@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 from torch.optim import AdamW
 from torch.amp import autocast, GradScaler
 import os
-from main import BaseTrainer
+from trainer import BaseTrainer
 import torch.nn.functional as F
 import numpy as np
 from utils import image2label
