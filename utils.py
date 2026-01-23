@@ -1,4 +1,3 @@
-import os
 import numpy as np
 from ultralytics.data.utils import polygons2masks
 import cv2
@@ -132,11 +131,13 @@ def read_img(path, flags=cv2.IMREAD_COLOR):
     """
     used for replacing cv2.imread since the function will fail when path contains chinese.
     """
+    path = path.replace("\\", "/")
     data = np.fromfile(path, dtype=np.uint8)
     img = cv2.imdecode(data, flags)
     return img
 
 def image2label(img_path, lbl_ext=".png"):
-    label_path = img_path.replace(f"{os.sep}images{os.sep}", f"{os.sep}labels{os.sep}")
+    img_path = img_path.replace("\\", "/")
+    label_path = img_path.replace("/images/", f"/labels/")
     label_path = label_path.rsplit(".", 1)[0] + lbl_ext
     return label_path
