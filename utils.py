@@ -139,6 +139,6 @@ def read_img(path, flags=cv2.IMREAD_COLOR):
 
 def image2label(img_path, lbl_ext=".png"):
     img_path = img_path.replace("\\", "/")
-    label_path = img_path.replace("/images/", f"/labels/")
+    label_path = img_path.replace("/images/", "/labels/")
     label_path = label_path.rsplit(".", 1)[0] + lbl_ext
     return label_path
