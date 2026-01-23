@@ -19,8 +19,7 @@ class OilDataset(Dataset):
         with open(data_file, "r", encoding="utf-8") as f:
             for line in f.readlines():
                 img_path = line.strip()
-                lbl_path = img_path.replace(f"{os.sep}images{os.sep}", f"{os.sep}labels{os.sep}").replace(".jpg", ".png")
-
+                lbl_path = image2label(img_path)
                 # ---------- image ----------
                 img = read_img(img_path)
                 img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
