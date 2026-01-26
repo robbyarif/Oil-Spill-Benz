@@ -70,6 +70,35 @@ class OilDataset(Dataset):
             mask = TF.pad(mask, [0, 0, pad_w, pad_h])
         return image, mask
 
+class DiceLoss(nn.Module):
+    def __init__(self, smooth=1.0):
+        super().__init__()
+        self.smooth = smooth
+
+    def forward(self, logits, targets):
+        probs = torch.sigmoid(logits)
+
+        probs = probs.view(probs.size(0), -1)
+        targets = targets.view(targets.size(0), -1)
+
+        intersection = (probs * targets).sum(dim=1)
+        union = probs.sum(dim=1) + targets.sum(dim=1)
+
+        dice = (2. * intersection + self.smooth) / (union + self.smooth)
+        return 1 - dice.mean()
+
+class BCEDiceLoss(nn.Module):
+    def __init__(self, bce_weight=0.5):
+        super().__init__()
+        self.bce = nn.BCEWithLogitsLoss()
+        self.dice = DiceLoss()
+        self.bce_weight = bce_weight
+
+    def forward(self, logits, targets):
+        bce_loss = self.bce(logits, targets)
+        dice_loss = self.dice(logits, targets)
+        return self.bce_weight * bce_loss + (1 - self.bce_weight) * dice_loss
+
 def train(model, loss_fn, dataloader, optimizer, device, scalar):
     model.train()
     total_loss = 0.0
@@ -163,7 +192,7 @@ class DeeplabTrainer(BaseTrainer):
             power=0.9
         )
 
-        loss_fn = nn.BCEWithLogitsLoss()
+        loss_fn = BCEDiceLoss(bce_weight=0.5)
 
         loss_record = []
         best_loss = float("inf")
