@@ -60,7 +60,7 @@ tensorboard_logs/
 
 # Jupyter Notebooks
 .ipynb_checkpoints
-*.ipynb
+# *.ipynb
 
 # Testing
 .pytest_cache/
