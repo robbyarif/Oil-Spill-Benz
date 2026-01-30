@@ -1,0 +1,63 @@
+defaults:
+  output_root: runs/exp-manager
+  save: true
+
+experiments:
+  - name: yolov11-exp2.2-port-oil
+    model: yolo
+    dataset: datasets/processed/exp2.2_port-oil-split
+    load:
+      version: 11
+    params:
+      epochs: 200
+      imgsz: 512
+      batch: 8
+      workers: 8
+    test:
+      enabled: true
+      file_name: test.txt
+      color_coded: false
+      save: true
+
+  - name: yolov12-exp2.2-port-oil
+    model: yolo
+    dataset: datasets/processed/exp2.2_port-oil-split
+    load:
+      version: 12
+    params:
+      epochs: 200
+      imgsz: 512
+      batch: 8
+      workers: 8
+    test:
+      enabled: true
+      file_name: test.txt
+      color_coded: false
+      save: true
+
+  - name: deeplabv3-exp2.2-port-oil
+    model: deeplabv3
+    dataset: datasets/processed/exp2.2_port-oil-split
+    params:
+      epochs: 200
+      batch: 8
+      image_size: 512
+      workers: 6
+    test:
+      enabled: true
+      file_name: test.txt
+      color_coded: false
+      save: true
+
+  - name: segformer-exp2.2-port-oil
+    model: segformer
+    dataset: datasets/processed/exp2.2_port-oil-split
+    params:
+      epochs: 200
+      batch: 4
+      workers: 4
+    test:
+      enabled: true
+      file_name: test.txt
+      color_coded: false
+      save: true
