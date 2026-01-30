@@ -1,0 +1,63 @@
+defaults:
+  output_root: runs/exp-manager
+  save: true
+
+experiments:
+  - name: yolo-exp2.1-inc
+    model: yolo
+    dataset: datasets/processed/exp2.1_inc-split
+    load:
+      version: 11
+    params:
+      epochs: 200
+      imgsz: 512
+      batch: 8
+      workers: 8
+    test:
+      enabled: true
+      file_name: test.txt
+      color_coded: false
+      save: true
+
+  - name: yolo-exp2.1-inc
+    model: yolo
+    dataset: datasets/processed/exp2.1_inc-split
+    load:
+      version: 12
+    params:
+      epochs: 200
+      imgsz: 512
+      batch: 8
+      workers: 8
+    test:
+      enabled: true
+      file_name: test.txt
+      color_coded: false
+      save: true
+
+  # - name: deeplabv3-exp2.1-inc
+  #   model: deeplabv3
+  #   dataset: datasets/processed/exp2.1_inc-split
+  #   params:
+  #     epochs: 200
+  #     batch: 8
+  #     image_size: 512
+  #     workers: 6
+  #   test:
+  #     enabled: true
+  #     file_name: test.txt
+  #     color_coded: false
+  #     save: true
+
+  # - name: segformer-exp2.1-inc
+  #   model: segformer
+  #   dataset: datasets/processed/exp2.1_inc-split
+  #   params:
+  #     epochs: 200
+  #     batch: 4
+  #     workers: 4
+  #   test:
+  #     enabled: true
+  #     file_name: test.txt
+  #     color_coded: false
+  #     save: true

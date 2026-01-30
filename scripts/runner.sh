@@ -1,0 +1,1 @@
+python run_experiments.py --config="configs/experiments/exp2_2_port-oil.yaml" | tee logs/output.txt 
