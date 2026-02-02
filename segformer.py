@@ -56,13 +56,18 @@ class SegformerTrainer(BaseTrainer):
             "workers": 8,
         }
 
-    def load_model(self, weights="nvidia/segformer-b0-finetuned-ade-512-512"):
+    def load_model(self, weights=None):
+        base = "nvidia/segformer-b0-finetuned-ade-512-512"
+
         self.model = SegformerForSemanticSegmentation.from_pretrained(
-            weights,
+            base,
             num_labels=2,
             ignore_mismatched_sizes=True
         )
-        self.image_processor = AutoImageProcessor.from_pretrained(weights, use_fast=True)
+        self.image_processor = AutoImageProcessor.from_pretrained(base, use_fast=True)
+
+        if weights is not None:
+            self.model.load_state_dict(torch.load(weights, map_location="cpu"))
 
     def _train(self, src, dst=None, save=True, **kwargs):
         args = {**self.train_args, **kwargs}
