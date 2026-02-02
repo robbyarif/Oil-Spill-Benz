@@ -79,32 +79,17 @@ class DatasetBuilder:
     def _write_txt(dst, content):
         with open(dst, "w", encoding="utf-8") as f:
             for line in content:
+                line = line.replace("\\", "/")
                 f.write(line + "\n")
 
-
-# IMPORTANT:
-# The source dataset directory structure must contain both "/images/" and "/labels/".
-# During dataset creation, images and labels are matched by their paths.
-# Ensure that path/.../images/.../foo_001.jpg corresponds to path/.../labels/.../foo_001.txt.
-
-# NOTE:
-#     src : Path to the original dataset directory
-#     dst : Path where the processed dataset will be saved
-#     image_ext : Allowed image file extensions
-#     label_ext : Allowed label (mask) file extensions
-#
-#     builder.create(ratio=(0.8,0.1,0.1)) => split data to train.txt, val.txt and test.txt in ratio of 0.8, 0.1, 0.1.
-#     builder.create(ratio=(0.8,0.2))     => split data to train.txt and val.txt in ratio of 0.8 and 0.2.
-#     builder.kfold(k=5)                  => create k fold, each fold contain train.txt and val.txt in ratio of (k-1)/k and 1/k.
-
 def main():
-    src = r"DV4"
-    dst = r"datasets/new_baseline"
+    src = "Nafta"
+    dst = "datasets/nafta_baseline"
     image_ext = {".jpg"}
     label_ext = {".png"}
     builder = DatasetBuilder(src, dst, image_ext, label_ext, random_seed=42)
 
-    builder.create(ratio=(0.6, 0.2, 0.2))
+    builder.create(ratio=(0.8, 0.2))
 
 if __name__ == "__main__":
     main()
