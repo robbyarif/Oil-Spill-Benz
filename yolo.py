@@ -21,6 +21,7 @@ class YoloTrainer(BaseTrainer):
             "device" : 0,
             "workers" : 8,
             "plots" : False,
+            "exist_ok" : True,
         }
 
     def load_model(self, weights=None, version=11):
