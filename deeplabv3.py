@@ -204,11 +204,10 @@ class DeeplabTrainer(BaseTrainer):
             loss_record.append((train_loss, val_loss))
             scheduler.step()
 
-            if val_loss < best_loss:
-                best_loss = val_loss
-
             if save and val_loss < best_loss:
                 torch.save(self.model.state_dict(), os.path.join(dst, "weights", "best.pt"))
+            if val_loss < best_loss:
+                best_loss = val_loss
 
             print(f"Train loss: {train_loss:.3f}, Valid loss: {val_loss:.3f}")
 

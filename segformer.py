@@ -87,12 +87,12 @@ class SegformerTrainer(BaseTrainer):
             loss_records.append((train_loss, valid_loss))
             print(f"train loss: {train_loss:.3f}, valid loss: {valid_loss:.3f}")
 
-            if valid_loss < best_loss:
-                best_loss = valid_loss
             if save:
                 torch.save(self.model.state_dict(), os.path.join(dst, "weights", "last.pt"))
             if save and valid_loss < best_loss:
                 torch.save(self.model.state_dict(), os.path.join(dst, "weights", "best.pt"))
+            if valid_loss < best_loss:
+                best_loss = valid_loss
 
         if save:
             csv_path = os.path.join(dst, "results.csv")
@@ -187,13 +187,7 @@ def valid(model, dataloader, device):
     return total_loss / len(dataloader)
 
 def main():
-    src = r"datasets\kfold\fold_4"
-    dst = r"runs\kfold\segformer\fold_4"
-
-    trainer = SegformerTrainer()
-    trainer.load_model()
-    trainer.train(src, dst, save=False, epochs=100)
-    trainer.test(src, dst, save=True, file_name="val.txt")
+    ...
 
 if __name__ == "__main__":
     main()
