@@ -6,9 +6,9 @@ import numpy as np
 
 # --- CONFIGURATION ---
 CLASSES = ["Oil Spill"]  # Update this list!
-BASE_DIR = "/home/robby/workspace/Oil-Spill-Benz/datasets/processed/exp2.1_rfdetr_inc-split_organized"  # Base dataset directory
-SPLITS = ["train", "test", "val"]  # Splits to process
-OUTPUT_DIR = "/home/robby/workspace/Oil-Spill-Benz/datasets/processed/exp2.1_rfdetr_inc-split_organized_coco"  # Output directory for JSON files
+BASE_DIR = "/home/robby/workspace/Oil-Spill-Benz/datasets/processed/exp2.4-dv3train_organized"  # Base dataset directory
+SPLITS = ["train", "test", "valid"]  # Splits to process
+OUTPUT_DIR = "/home/robby/workspace/Oil-Spill-Benz/datasets/processed/exp2.4-dv3train_organized_coco"  # Output directory for JSON files
 # ---------------------
 
 def get_split_paths(base_dir, split_name):

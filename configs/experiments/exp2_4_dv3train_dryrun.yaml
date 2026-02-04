@@ -1,5 +1,5 @@
 defaults:
-  output_root: runs/exp-manager-20260201
+  output_root: runs/exp-manager
   save: true
 
 experiments:
@@ -9,7 +9,7 @@ experiments:
     load:
       version: 11
     params:
-      epochs: 200
+      epochs: 1
       imgsz: 512
       batch: 8
       workers: 8
@@ -25,7 +25,7 @@ experiments:
     load:
       version: 12
     params:
-      epochs: 200
+      epochs: 1
       imgsz: 512
       batch: 8
       workers: 8
@@ -39,7 +39,7 @@ experiments:
     model: deeplabv3
     dataset: datasets/processed/exp2.4-dv3train
     params:
-      epochs: 200
+      epochs: 1
       batch: 8
       image_size: 512
       workers: 6
@@ -53,7 +53,7 @@ experiments:
     model: segformer
     dataset: datasets/processed/exp2.4-dv3train
     params:
-      epochs: 200
+      epochs: 1
       batch: 4
       workers: 4
     test:

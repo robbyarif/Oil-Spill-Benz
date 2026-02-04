@@ -59,10 +59,19 @@ def load_split(split_file: Path, repo_root: Path) -> set[Path]:
 
 def find_image(label_path: Path, labels_root: Path, images_root: Path) -> Path | None:
     rel = label_path.relative_to(labels_root).with_suffix("")
+    # Replace 'labels' with 'images' in the path for matching structure
+    rel_str = str(rel).replace("labels", "images", 1)
+    rel = Path(rel_str)
+    
+    # Try exact extensions and uppercase variants
     for ext in ALLOWED_IMAGE_EXT:
         candidate = images_root / rel.with_suffix(ext)
         if candidate.exists():
             return candidate
+        # Try uppercase variant
+        candidate_upper = images_root / rel.with_suffix(ext.upper())
+        if candidate_upper.exists():
+            return candidate_upper
     return None
 
 
@@ -126,9 +135,8 @@ def process_label(
     mask = Image.new("L", (width, height), color=0)
     draw_polygons(mask, polygons, class_offset, fill_scale)
 
-    rel = label_path.relative_to(labels_root).with_suffix(".png")
-    dst = output_root / rel
-    dst.parent.mkdir(parents=True, exist_ok=True)
+    # Save mask in the same directory as the label file with .png extension
+    dst = label_path.with_suffix(".png")
     mask.save(dst)
     return True
 
@@ -162,3 +170,16 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+# Example usage:
+
+# python scripts/create_masks_from_yolo.py \
+#   --labels-root /home/robby/workspace/Oil-Spill-Benz/datasets/processed/dv3-by-date \
+#   --images-root /home/robby/workspace/Oil-Spill-Benz/datasets/processed/dv3-by-date \
+#   --output-root /home/robby/workspace/Oil-Spill-Benz/datasets/processed/dv3-by-date-masks
+
+# python scripts/create_masks_from_yolo.py \
+#   --labels-root /home/robby/workspace/Oil-Spill-Benz/datasets/processed/dv3-by-date \
+#   --images-root /home/robby/workspace/Oil-Spill-Benz/datasets/processed/dv3-by-date \
+#   --split-file /home/robby/workspace/Oil-Spill-Benz/datasets/processed/exp2.4-dv3train/train.txt
