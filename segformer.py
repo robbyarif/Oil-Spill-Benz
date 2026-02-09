@@ -53,6 +53,7 @@ class SegformerTrainer(BaseTrainer):
         self.train_args = {
             "epochs": 100,
             "batch": 16,
+            "lr": 6e-5,
             "workers": 8,
         }
 
@@ -80,7 +81,7 @@ class SegformerTrainer(BaseTrainer):
         valid_loader = DataLoader(valid_dataset, batch_size=args["batch"], shuffle=False, num_workers=args["workers"], persistent_workers=True, pin_memory=True)
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        optimizer = AdamW(self.model.parameters(), lr=6e-5)
+        optimizer = AdamW(self.model.parameters(), lr=args["lr"])
         self.model.to(device)
 
         loss_records = []

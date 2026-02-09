@@ -53,7 +53,6 @@ class OilDataset(Dataset):
 
                 self.data_pairs.append((img, mask))
 
-
     def __len__(self):
         return len(self.data_pairs)
 
@@ -171,8 +170,8 @@ class DeeplabTrainer(BaseTrainer):
         train_dataset = OilDataset(train_file, image_size=args["image_size"])
         valid_dataset = OilDataset(valid_file, image_size=args["image_size"])
 
-        train_loader = DataLoader(train_dataset, batch_size=args["batch"], num_workers=args["workers"], shuffle=True, persistent_workers=True)
-        valid_loader = DataLoader(valid_dataset, batch_size=args["batch"], num_workers=args["workers"], shuffle=False, persistent_workers=True)
+        train_loader = DataLoader(train_dataset, batch_size=args["batch"], num_workers=args["workers"], shuffle=True, persistent_workers=True, drop_last=True)
+        valid_loader = DataLoader(valid_dataset, batch_size=args["batch"], num_workers=args["workers"], shuffle=False, persistent_workers=True, drop_last=True)
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         scaler = GradScaler("cuda", enabled=(device.type == "cuda"))
         self.model.to(device)
