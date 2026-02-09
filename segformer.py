@@ -77,8 +77,8 @@ class SegformerTrainer(BaseTrainer):
         valid_file = os.path.join(src, "val.txt")
         train_dataset = OilDataset(train_file, self.image_processor)
         valid_dataset = OilDataset(valid_file, self.image_processor)
-        train_loader = DataLoader(train_dataset, batch_size=args["batch"], shuffle=True, num_workers=args["workers"], persistent_workers=True, pin_memory=True)
-        valid_loader = DataLoader(valid_dataset, batch_size=args["batch"], shuffle=False, num_workers=args["workers"], persistent_workers=True, pin_memory=True)
+        train_loader = DataLoader(train_dataset, batch_size=args["batch"], shuffle=True, num_workers=args["workers"], persistent_workers=True, pin_memory=True, drop_last=True)
+        valid_loader = DataLoader(valid_dataset, batch_size=args["batch"], shuffle=False, num_workers=args["workers"], persistent_workers=True, pin_memory=True, drop_last=True)
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
         optimizer = AdamW(self.model.parameters(), lr=args["lr"])
