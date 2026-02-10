@@ -36,7 +36,7 @@ class BaseTrainer(ABC):
 
         self._train(src, dst, save, **kwargs)
 
-    def test(self, src, dst=None, * ,file_name="test.txt", color_coded=False, log=True, save=True):
+    def test(self, src, dst=None, * ,file_name="test.txt", log=True, save=True, color_coded=False, alpha=(1.0, 0.4, 0.4)):
         file_path = os.path.join(src, file_name)
         if not os.path.exists(file_path):
             raise Exception(f"file {file_path} doesn't exist.")
@@ -47,7 +47,7 @@ class BaseTrainer(ABC):
                 os.makedirs(dst, exist_ok=True)
 
         self._predict(src, file_name)
-        self._analyze(dst, color_coded=color_coded, log=log, save=save)
+        self._analyze(dst, color_coded=color_coded, log=log, save=save, alpha=alpha)
 
     def kfold(self, src, dst=None, save=True, **kwargs):
         if not os.path.exists(src):
@@ -103,13 +103,13 @@ class BaseTrainer(ABC):
     @abstractmethod
     def _predict(self, src, file_name="test.txt"): ...
 
-    def _analyze(self, dst=None, * , log=True, color_coded=False, save=True):
+    def _analyze(self, dst=None, * , log=True, save=True, color_coded=False, alpha=(1.0, 0.4, 0.4)):
         acc = 0
         f1, f1_num = 0, 0
         oil_iou, bg_iou = 0, 0
         oil_num, bg_num = 0, 0
 
-        for file_name, pred_mask, gt_mask in self.results:
+        for image_path, pred_mask, gt_mask in self.results:
             acc += get_acc(pred_mask, gt_mask)
 
             f1_buf = get_f1(pred_mask, gt_mask)
@@ -127,16 +127,13 @@ class BaseTrainer(ABC):
 
             # visualize coded mask
             if color_coded:
-                os.makedirs(os.path.join(dst, "color_coded_masks"), exist_ok=True)
+                os.makedirs(os.path.join(dst, "color_coded_images"), exist_ok=True)
 
-                colors = [
-                    (0, 255, 0),  # TP
-                    (0, 0, 255),  # FP
-                    (0, 255, 255),  # FN
-                    (128, 128, 128)  # TN
-                ]
-                coded_mask = get_coded_mask(pred_mask, gt_mask, colors)
-                cv2.imwrite(os.path.join(dst, "color_coded_masks", f"IoU={oil_buf:.3f}_{file_name}.jpg"), coded_mask)
+                file_name = os.path.basename(image_path)
+                origin_img = read_img(image_path)
+
+                coded_mask = get_coded_image(origin_img, pred_mask, gt_mask, alpha)
+                cv2.imwrite(os.path.join(dst, "color_coded_images", f"IoU={oil_buf:.3f}_{file_name}.jpg"), coded_mask)
 
         acc = acc / len(self.results)
         f1 = f1 / f1_num if f1_num else None

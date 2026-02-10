@@ -75,7 +75,6 @@ class YoloTrainer(BaseTrainer):
         for result in results:
             img_h, img_w = result.orig_shape
             img_size = (img_h, img_w)
-            img_name = os.path.basename(result.path).rsplit('.', maxsplit=1)[0]
 
             pred_contours = []
             if hasattr(result, "masks") and result.masks is not None:
@@ -89,7 +88,7 @@ class YoloTrainer(BaseTrainer):
             gt_mask = contours2mask(gt_contours, img_size)
             gt_mask = (gt_mask > 0).astype(np.uint8)
 
-            self.results.append((img_name, pred_mask, gt_mask))
+            self.results.append((result.path, pred_mask, gt_mask))
 
 def main():
     ...

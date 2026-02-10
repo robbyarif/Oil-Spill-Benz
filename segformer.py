@@ -117,7 +117,6 @@ class SegformerTrainer(BaseTrainer):
                 img_path = line.strip()
                 lbl_path = image2label(img_path)
 
-                img_name = os.path.basename(img_path).rsplit(".", maxsplit=1)[0]
                 image = Image.open(img_path).convert("RGB")
                 orig_size = image.size[::-1]
 
@@ -144,7 +143,7 @@ class SegformerTrainer(BaseTrainer):
                 gt_mask = np.array(Image.open(lbl_path), dtype=np.uint8)
                 gt_mask = (gt_mask > 0).astype(np.uint8)
 
-                self.results.append((img_name, pred_mask, gt_mask))
+                self.results.append((img_path, pred_mask, gt_mask))
 
 
 def train(model, dataloader, optimizer, device):

@@ -239,7 +239,6 @@ class DeeplabTrainer(BaseTrainer):
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             H, W = img.shape[:2]
             img = torch.from_numpy(img).permute(2, 0, 1).float() / 255.0
-            img_name = os.path.basename(img_path).rsplit(".", maxsplit=1)[0]
 
             img = TF.normalize(
                 img,
@@ -271,7 +270,7 @@ class DeeplabTrainer(BaseTrainer):
                 gt_mask = gt_mask.squeeze(-1)
             gt_mask = (gt_mask > 0).astype(np.uint8)
 
-            self.results.append((img_name, pred_mask, gt_mask))
+            self.results.append((img_path, pred_mask, gt_mask))
 
 def main():
     ...

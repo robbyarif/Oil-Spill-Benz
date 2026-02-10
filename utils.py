@@ -108,25 +108,23 @@ def get_f1(pred_mask, gt_mask):
     else:
         return 2 * TP / (2 * TP + FP + FN)
 
-def get_coded_mask(pred_mask, gt_mask, colors):
-    """
-    create a mask that each pixel denotes the (TP, FP, FN, TN) of  model predicted mask and ground truth mask by different colors
-    args:
-        pred_mask (ndarray): the binary mask predicted by model
-        gt_mask (ndarray): the binary ground truth mask
-        colors (list): contains four tuples assign to the (TP, FP, FN, TN) in BGR format
-    return:
-        coded_mask (ndarray): the color coded mask
-    """
-    h, w = pred_mask.shape
-    coded_mask = np.zeros((h, w, 3), dtype=np.uint8)
-    TP = (pred_mask == 1) & (gt_mask == 1)
-    FP = (pred_mask == 1) & (gt_mask == 0)
-    FN = (pred_mask == 0) & (gt_mask == 1)
-    TN = (pred_mask == 0) & (gt_mask == 0)
-    for cls, color in zip([TP, FP, FN, TN], colors):
-        coded_mask[cls] = color
-    return coded_mask
+def get_coded_image(origin_img, pred_mask, gt_mask, alpha=(1.0, 0.4, 0.4)):
+    # alpha: (origin, pred, gt)
+    coded_image = origin_img.astype(np.float32) * alpha[0]
+
+    pred = pred_mask > 0
+    gt = gt_mask > 0
+
+    coded_image[pred] = coded_image[pred] * (1 - alpha[1]) + np.array([0, 0, 255], dtype=np.float32) * alpha[1]
+    coded_image[gt] = coded_image[gt] * (1 - alpha[2]) + np.array([0, 255, 255], dtype=np.float32) * alpha[2]
+
+    if alpha[1] and alpha[2]:
+        tp_alpha = (alpha[1] + alpha[2]) / 2
+        tp = (pred_mask == 1) & (gt_mask == 1)
+        coded_image[tp] = origin_img[tp] * (1 - tp_alpha) + np.array([0, 255, 0], dtype=np.float32) * tp_alpha
+
+    return coded_image.clip(0, 255).astype(np.uint8)
+
 
 def read_img(path, flags=cv2.IMREAD_COLOR):
     """
