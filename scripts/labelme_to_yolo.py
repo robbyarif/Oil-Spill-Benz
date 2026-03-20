@@ -112,14 +112,33 @@ def convert_labelme_to_yolo_seg(input_dir, output_dir):
 
 if __name__ == "__main__":
     # --- User configuration block ---
-    # input_directory = r'/home/yuan/OIL_PROJECT/dataset/dataset_UAV/partial_5280x2970_with_json/5280x2970' # input("Enter the source folder path containing images and LabelMe (.json) files: ")
-    # output_directory = r'/home/yuan/OIL_PROJECT/dataset/dataset_UAV/partial_5280x2970_mask' # input("Enter the output folder path to save YOLO-format labels: ")
-    input_directory = r'/home/robby/workspace/Oil-Spill-Benz/datasets/raw/DV3/Categorize_UAV' # input("Enter the source folder path containing images and LabelMe (.json) files: ")
-    output_directory = r'/home/robby/workspace/Oil-Spill-Benz/datasets/raw/dv3-all' # input("Enter the output folder path to save YOLO-format labels: ")
+    input_directory = r'/home/robby/workspace/Oil-Spill-Benz/datasets/raw/DV3/Categorize_UAV'
+    output_base_directory = r'/home/robby/workspace/Oil-Spill-Benz/datasets/raw/dv3-all'
 
     if not os.path.isdir(input_directory):
         print(f"Error: source path '{input_directory}' is not a valid folder.")
-    elif not output_directory:
+    elif not output_base_directory:
         print("Error: output folder path cannot be empty.")
     else:
-        convert_labelme_to_yolo_seg(input_directory, output_directory)
+        # Get all subdirectories in input_directory
+        subdirs = [d for d in os.listdir(input_directory) 
+                   if os.path.isdir(os.path.join(input_directory, d))]
+        
+        if not subdirs:
+            print(f"No subdirectories found in '{input_directory}'")
+        else:
+            print(f"\nFound {len(subdirs)} subdirectories to process:")
+            for subdir in subdirs:
+                print(f"  - {subdir}")
+            print()
+            
+            # Process each subdirectory
+            for subdir in subdirs:
+                input_subdir = os.path.join(input_directory, subdir)
+                output_subdir = os.path.join(output_base_directory, subdir)
+                
+                print(f"\n{'='*60}")
+                print(f"Processing: {subdir}")
+                print(f"{'='*60}")
+                
+                convert_labelme_to_yolo_seg(input_subdir, output_subdir)
