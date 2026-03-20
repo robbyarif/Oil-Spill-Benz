@@ -1,0 +1,23 @@
+defaults:
+  output_root: runs/dv4_random_split_rfdetrsegnano/test
+  save: true
+
+experiments:
+  - name: rfdetr-segnano-dv4-random-split
+    model: rfdetr
+    dataset: datasets/processed/dv4_random_split_coco_312
+    load:
+      # version: 11
+      weights: runs/dv4_random_split_rfdetrsegnano/checkpoint_best_regular.pth
+    params:
+      epochs: 100 #200
+      imgsz: 512
+      batch: 8
+      workers: 8
+    test:
+      enabled: true
+      file_name: test.txt
+      color_coded: true
+      save: true
+
+  
