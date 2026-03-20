@@ -1,4 +1,5 @@
 import csv
+import time
 from abc import ABC, abstractmethod
 import torch
 import gc
@@ -34,9 +35,17 @@ class BaseTrainer(ABC):
             weight_path = os.path.join(dst, "weights")
             os.makedirs(weight_path, exist_ok=True)
 
+        start_time = time.time()
         self._train(src, dst, save, **kwargs)
+        training_time = time.time() - start_time
 
-    def test(self, src, dst=None, * ,file_name="test.txt", color_coded=False, log=True, save=True):
+        if save:
+            with open(os.path.join(dst, "training_time.txt"), "w") as f:
+                f.write(f"Training time: {training_time:.2f} seconds ({training_time/60:.2f} minutes)")
+
+        print(f"\nTraining completed in {training_time:.2f}s ({training_time/60:.2f}m)")
+
+    def test(self, src, dst=None, *, file_name="test.txt", color_coded=False, log=True, save=True):
         file_path = os.path.join(src, file_name)
         if not os.path.exists(file_path):
             raise Exception(f"file {file_path} doesn't exist.")
@@ -46,8 +55,11 @@ class BaseTrainer(ABC):
             else:
                 os.makedirs(dst, exist_ok=True)
 
+        start_time = time.time()
         self._predict(src, file_name)
-        self._analyze(dst, color_coded=color_coded, log=log, save=save)
+        inference_time = time.time() - start_time
+
+        self._analyze(dst, color_coded=color_coded, log=log, save=save, inference_time=inference_time)
 
     def kfold(self, src, dst=None, save=True, **kwargs):
         if not os.path.exists(src):
@@ -103,7 +115,7 @@ class BaseTrainer(ABC):
     @abstractmethod
     def _predict(self, src, file_name="test.txt"): ...
 
-    def _analyze(self, dst=None, * , log=True, color_coded=False, save=True):
+    def _analyze(self, dst=None, *, log=True, color_coded=False, save=True, inference_time=None):
         acc = 0
         f1, f1_num = 0, 0
         oil_iou, bg_iou = 0, 0
@@ -136,7 +148,18 @@ class BaseTrainer(ABC):
                     (128, 128, 128)  # TN
                 ]
                 coded_mask = get_coded_mask(pred_mask, gt_mask, colors)
+                if oil_buf is None or file_name is None or coded_mask is None:
+                    continue
                 cv2.imwrite(os.path.join(dst, "color_coded_masks", f"IoU={oil_buf:.3f}_{file_name}.jpg"), coded_mask)
+                # TODO save pred mask as overlay on original image. find original image path from test.txt
+
+            # save prediction mask as image and yolo format label
+            if save:
+                os.makedirs(os.path.join(dst, "pred_masks"), exist_ok=True)
+                cv2.imwrite(os.path.join(dst, "pred_masks", f"{file_name}.png"), pred_mask.astype(np.uint8) * 255)
+                # save yolo format label
+                label_path = os.path.join(dst, "pred_masks", f"{file_name}.txt")
+                mask2yolo_label(pred_mask, label_path)
 
         acc = acc / len(self.results)
         f1 = f1 / f1_num if f1_num else None
@@ -151,6 +174,10 @@ class BaseTrainer(ABC):
             "BG IoU": bg_iou,
             "mIoU": m_iou
         }
+        
+        if inference_time is not None:
+            metrics["Inference Time (s)"] = inference_time
+            metrics["Avg Time per Image (s)"] = inference_time / len(self.results) if self.results else 0
 
         if log:
            self._output_metrics("metrics", metrics)

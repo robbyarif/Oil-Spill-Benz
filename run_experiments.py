@@ -6,11 +6,13 @@ import yaml
 from yolo import YoloTrainer
 from deeplabv3 import DeeplabTrainer
 from segformer import SegformerTrainer
+from rfdetr_trainer import RFDETRTrainer
 
 TRAINERS = {
     "yolo": YoloTrainer,
     "deeplabv3": DeeplabTrainer,
     "segformer": SegformerTrainer,
+    "rfdetr": RFDETRTrainer,
 }
 
 
