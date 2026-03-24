@@ -62,9 +62,13 @@ class RFDETRTrainer(BaseTrainer):
     def _train(self, src, dst=None, save=True, **kwargs):
         """Train RF-DETR model."""
         args = {**self.train_args, **kwargs}
+        resolution = args.pop("resolution", None)
         
         # Convert dataset to COCO format if needed
-        dataset_dir = prepare_coco_dataset(src)
+        if resolution is None:
+            dataset_dir = prepare_coco_dataset(src)
+        else:
+            dataset_dir = prepare_coco_dataset(src, resolution=resolution)
         if not os.path.exists(os.path.join(dataset_dir, "train", "_annotations.coco.json")):
             raise Exception(f"Failed to create COCO format dataset in {dataset_dir}")
         

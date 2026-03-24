@@ -3,8 +3,9 @@
 import json
 import os
 import shutil
-from typing import Optional
+from typing import Optional, Tuple, Union
 
+import cv2
 import numpy as np
 
 from utils import image2label, read_img, yolo_label2contours
@@ -14,6 +15,7 @@ def prepare_coco_dataset(
     src: str,
     output_dir: Optional[str] = None,
     categories: Optional[list] = None,
+    resolution: Optional[Union[int, Tuple[int, int]]] = 312,
 ) -> str:
     """
     Convert a dataset with train.txt, val.txt, test.txt into COCO format.
@@ -22,6 +24,7 @@ def prepare_coco_dataset(
         src: Source directory containing txt files listing image paths
         output_dir: Output directory for COCO format (default: {src}/coco_format_temp)
         categories: List of category dicts [{"id": 0, "name": "oil", ...}]
+        resolution: Target image size. Use an int for square size or (height, width)
     
     Returns:
         Path to COCO format directory
@@ -31,6 +34,17 @@ def prepare_coco_dataset(
     
     if categories is None:
         categories = [{"id": 0, "name": "oil", "supercategory": "oil"}]
+
+    if resolution is not None:
+        if isinstance(resolution, int):
+            target_h, target_w = resolution, resolution
+        else:
+            if len(resolution) != 2:
+                raise ValueError("resolution must be an int or a tuple/list with 2 values: (height, width)")
+            target_h, target_w = int(resolution[0]), int(resolution[1])
+        if target_h <= 0 or target_w <= 0:
+            raise ValueError("resolution values must be positive integers")
+        resolution = (target_h, target_w)
     
     # If already COCO format, return directly
     if os.path.exists(os.path.join(src, "train", "_annotations.coco.json")):
@@ -72,22 +86,40 @@ def prepare_coco_dataset(
                 continue
             
             h, w = img.shape[:2]
-            
-            # Copy image to split directory
-            shutil.copy2(abs_img_path, dst_img)
+            out_h, out_w = h, w
+
+            # Optionally resize exported images to a fixed resolution
+            if resolution is not None:
+                out_h, out_w = resolution
+                if (h, w) != (out_h, out_w):
+                    img = cv2.resize(img, (out_w, out_h), interpolation=cv2.INTER_LINEAR)
+
+                ext = os.path.splitext(base_name)[1]
+                if ext == "":
+                    ext = ".jpg"
+
+                ok, encoded = cv2.imencode(ext, img)
+                if not ok:
+                    ok, encoded = cv2.imencode(".png", img)
+                if not ok:
+                    continue
+                encoded.tofile(dst_img)
+            else:
+                # Copy image to split directory
+                shutil.copy2(abs_img_path, dst_img)
             
             # Add image metadata
             coco_data["images"].append({
                 "id": img_id,
                 "file_name": base_name,
-                "height": int(h),
-                "width": int(w),
+                "height": int(out_h),
+                "width": int(out_w),
             })
             
             # Process labels
             label_path = image2label(abs_img_path, lbl_ext=".txt")
             if os.path.exists(label_path):
-                contours = yolo_label2contours(label_path, (h, w))
+                contours = yolo_label2contours(label_path, (out_h, out_w))
                 for contour in contours:
                     if len(contour) < 3:
                         continue
