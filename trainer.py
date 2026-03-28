@@ -1,4 +1,5 @@
 import csv
+import time
 from abc import ABC, abstractmethod
 import torch
 import gc
@@ -34,7 +35,9 @@ class BaseTrainer(ABC):
             weight_path = os.path.join(dst, "weights")
             os.makedirs(weight_path, exist_ok=True)
 
+        start_time = time.time()
         self._train(src, dst, save, **kwargs)
+        training_time = time.time() - start_time
 
     def test(self, src, dst=None, * ,file_name="test.txt", log=True, save=True, color_coded=False, alpha=(1.0, 0.4, 0.4)):
         file_path = os.path.join(src, file_name)
@@ -46,6 +49,7 @@ class BaseTrainer(ABC):
             else:
                 os.makedirs(dst, exist_ok=True)
 
+        start_time = time.time()
         self._predict(src, file_name)
         self._analyze(dst, color_coded=color_coded, log=log, save=save, alpha=alpha)
 
@@ -148,6 +152,10 @@ class BaseTrainer(ABC):
             "BG IoU": bg_iou,
             "mIoU": m_iou
         }
+        
+        if inference_time is not None:
+            metrics["Inference Time (s)"] = inference_time
+            metrics["Avg Time per Image (s)"] = inference_time / len(self.results) if self.results else 0
 
         if log:
            self._output_metrics("metrics", metrics)

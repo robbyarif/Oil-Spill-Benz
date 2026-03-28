@@ -84,9 +84,14 @@ class YoloTrainer(BaseTrainer):
             pred_mask = (pred_mask > 0).astype(np.uint8)
 
             label_path = image2label(result.path, lbl_ext=".txt")
-            gt_contours = yolo_label2contours(label_path, img_size)
-            gt_mask = contours2mask(gt_contours, img_size)
-            gt_mask = (gt_mask > 0).astype(np.uint8)
+            # Check if label_path does not exist skipping
+            if not os.path.exists(label_path):
+                print(f"Warning: Label file '{label_path}' does not exist. Skipping ground truth mask generation.")
+                gt_mask = np.zeros(img_size, dtype=np.uint8)
+            else:
+                gt_contours = yolo_label2contours(label_path, img_size)
+                gt_mask = contours2mask(gt_contours, img_size)
+                gt_mask = (gt_mask > 0).astype(np.uint8)
 
             self.results.append((result.path, pred_mask, gt_mask))
 

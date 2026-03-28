@@ -1,0 +1,76 @@
+defaults:
+  output_root: runs/exp-manager-20260206
+  save: true
+
+experiments:
+  - name: yolov11-exp2.4-dv3train
+    model: yolo
+    dataset: datasets/processed/exp2.4-dv3train
+    load:
+      version: 11
+    params:
+      epochs: 200
+      imgsz: 512
+      batch: 8
+      workers: 8
+    test:
+      enabled: true
+      file_name: test.txt
+      color_coded: true
+      save: true
+
+  - name: yolov12-exp2.4-dv3train
+    model: yolo
+    dataset: datasets/processed/exp2.4-dv3train
+    load:
+      version: 12
+    params:
+      epochs: 200
+      imgsz: 512
+      batch: 8
+      workers: 8
+    test:
+      enabled: true
+      file_name: test.txt
+      color_coded: true
+      save: true
+
+  - name: deeplabv3-exp2.4-dv3train
+    model: deeplabv3
+    dataset: datasets/processed/exp2.4-dv3train
+    params:
+      epochs: 200
+      batch: 8
+      image_size: 512
+      workers: 6
+    test:
+      enabled: true
+      file_name: test.txt
+      color_coded: true
+      save: true
+
+  - name: segformer-exp2.4-dv3train
+    model: segformer
+    dataset: datasets/processed/exp2.4-dv3train
+    params:
+      epochs: 200
+      batch: 4
+      workers: 4
+    test:
+      enabled: true
+      file_name: test.txt
+      color_coded: true
+      save: true
+
+  - name: segformer-exp2.4-dv3train
+    model: segformer
+    dataset: datasets/processed/exp2.4-dv3train
+    params:
+      epochs: 200
+      batch: 4
+      workers: 4
+    test:
+      enabled: true
+      file_name: test.txt
+      color_coded: true
+      save: true
