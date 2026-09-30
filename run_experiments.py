@@ -1,6 +1,8 @@
 import argparse
 import json
 import subprocess
+import sys
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict
@@ -156,6 +158,37 @@ def init_wandb(cfg: Dict[str, Any], *, exp, model_key, group, name, job_type, ru
     return run
 
 
+class _Tee:
+    def __init__(self, *streams):
+        self.streams = streams
+
+    def write(self, data):
+        for st in self.streams:
+            st.write(data)
+            st.flush()
+        return len(data)
+
+    def flush(self):
+        for st in self.streams:
+            st.flush()
+
+    def isatty(self):
+        return False
+
+
+@contextmanager
+def tee_log(log_path: Path):
+    """Mirror stdout/stderr to log_path while still printing to the terminal."""
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    out, err = sys.stdout, sys.stderr
+    with log_path.open("w", encoding="utf-8") as f:
+        sys.stdout, sys.stderr = _Tee(out, f), _Tee(err, f)
+        try:
+            yield
+        finally:
+            sys.stdout, sys.stderr = out, err
+
+
 def run_cross_validation(exp, defaults, repo_root, config_path) -> None:
     """Incident-split k-fold: each fold is trained, validated and tested on its own incident lists."""
     name = exp["name"]
@@ -237,6 +270,14 @@ def run_cross_validation(exp, defaults, repo_root, config_path) -> None:
 
 
 def run_experiment(exp: Dict[str, Any], defaults: Dict[str, Any], repo_root: Path, config_path: Path) -> None:
+    split_strategy = exp.get("cross_validation", {}).get("split_strategy", "incident") \
+        if "cross_validation" in exp else exp.get("split_strategy", "unspecified")
+    log_name = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{exp['name']}_{exp['model'].lower()}_{split_strategy}.log"
+    with tee_log(repo_root / defaults.get("log_dir", "logs") / log_name):
+        _run_experiment(exp, defaults, repo_root, config_path)
+
+
+def _run_experiment(exp: Dict[str, Any], defaults: Dict[str, Any], repo_root: Path, config_path: Path) -> None:
     if "cross_validation" in exp:
         run_cross_validation(exp, defaults, repo_root, config_path)
         return
