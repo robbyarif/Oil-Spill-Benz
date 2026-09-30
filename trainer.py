@@ -47,7 +47,7 @@ class BaseTrainer(ABC):
                 os.makedirs(dst, exist_ok=True)
 
         self._predict(src, file_name)
-        self._analyze(dst, color_coded=color_coded, log=log, save=save, alpha=alpha)
+        return self._analyze(dst, color_coded=color_coded, log=log, save=save, alpha=alpha)
 
     def kfold(self, src, dst=None, save=True, **kwargs):
         if not os.path.exists(src):
@@ -108,9 +108,16 @@ class BaseTrainer(ABC):
         f1, f1_num = 0, 0
         oil_iou, bg_iou = 0, 0
         oil_num, bg_num = 0, 0
+        tp = fp = fn = tn = 0  # pixel counts aggregated over all images (oil = positive)
 
         for image_path, pred_mask, gt_mask in self.results:
             acc += get_acc(pred_mask, gt_mask)
+
+            pred_b, gt_b = pred_mask > 0, gt_mask > 0
+            tp += int(np.logical_and(pred_b, gt_b).sum())
+            fp += int(np.logical_and(pred_b, ~gt_b).sum())
+            fn += int(np.logical_and(~pred_b, gt_b).sum())
+            tn += int(np.logical_and(~pred_b, ~gt_b).sum())
 
             f1_buf = get_f1(pred_mask, gt_mask)
             if f1_buf is not None:
@@ -141,12 +148,23 @@ class BaseTrainer(ABC):
         bg_iou = bg_iou / bg_num if bg_num else None
         m_iou = (oil_iou + bg_iou) / 2
 
+        agg_oil_iou = tp / (tp + fp + fn) if (tp + fp + fn) else None
+        agg_bg_iou = tn / (tn + fp + fn) if (tn + fp + fn) else None
+        agg_miou = (agg_oil_iou + agg_bg_iou) / 2 if agg_oil_iou is not None and agg_bg_iou is not None else None
+
         metrics = {
             "Acc": acc,
             "F1": f1,
             "Oil IoU": oil_iou,
             "BG IoU": bg_iou,
-            "mIoU": m_iou
+            "mIoU": m_iou,
+            "Oil IoU (agg)": agg_oil_iou,
+            "BG IoU (agg)": agg_bg_iou,
+            "mIoU (agg)": agg_miou,
+            "TP": tp,
+            "FP": fp,
+            "FN": fn,
+            "TN": tn,
         }
         
         if log:
@@ -167,7 +185,10 @@ class BaseTrainer(ABC):
             if is_std:
                 print(f"{metric:>{max_len}} : {(value[0] or 0):.3f} ± {(value[1] or 0):.3f}")
             else:
-                print(f"{metric:>{max_len}} : {(value or 0):.3f}")
+                if isinstance(value, int):
+                    print(f"{metric:>{max_len}} : {value}")
+                else:
+                    print(f"{metric:>{max_len}} : {(value or 0):.3f}")
 
 def main():
     ...

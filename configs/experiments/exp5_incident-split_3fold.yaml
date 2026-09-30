@@ -1,0 +1,42 @@
+# 3-fold cross validation, incident-split.
+# Output: runs/<datetime>_<name>_<model>_incident-split/fold{1,2,3}
+defaults:
+  output_root: runs
+  save: true
+  wandb:
+    enabled: true
+    project: oil-spill-seg
+    tags: [pretrained-port]
+    # entity: <your-wandb-entity>
+
+experiments:
+  - name: exp5-3fold
+    model: yolo
+    load:
+      weights: runs/exp2.2/weights/yolo/port_yolov11_best.pt
+    params:
+      epochs: 100
+      imgsz: 512
+      batch: 8
+      workers: 8
+    test:
+      enabled: true
+      file_name: test.txt
+      color_coded: true
+      save: true
+    cross_validation:
+      split_strategy: incident
+      data_root: data/preprocessed/crops
+      folds:
+        # Fold 1
+        - train: [20240725_dolphin, 20240725_alano, 20240725_keta]
+          val: [20201012_sierra-leone-zhi-hai-8, 20210622_cpc-dalin-buoy-2, 20160310_dexiang-taipei]
+          test: [20230720_angel, 20241208_liquid-gem, 20180812_chiayi-jia-ming-2, 20190801_chiayi-victory, 20191001_nanfang-ao-bridge]
+        # Fold 2
+        - train: [20230720_angel, 20240725_alano, 20241208_liquid-gem, 20190801_chiayi-victory, 20191001_nanfang-ao-bridge, 20201012_sierra-leone-zhi-hai-8, 20210622_cpc-dalin-buoy-2]
+          val: [20180812_chiayi-jia-ming-2, 20240725_keta]
+          test: [20240725_dolphin, 20160310_dexiang-taipei]
+        # Fold 3
+        - train: [20240725_dolphin, 20241208_liquid-gem, 20180812_chiayi-jia-ming-2, 20191001_nanfang-ao-bridge, 20160310_dexiang-taipei]
+          val: [20230720_angel, 20190801_chiayi-victory]
+          test: [20240725_alano, 20240725_keta, 20201012_sierra-leone-zhi-hai-8, 20210622_cpc-dalin-buoy-2]
