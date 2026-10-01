@@ -106,6 +106,17 @@ def log_test_metrics(run, metrics: Dict[str, float], prefix: str = "test") -> No
     )})
 
 
+def ensure_active_run(run, run_dir: Path):
+    """Ultralytics' wandb callback finishes the run at the end of training; reopen the same run to log test results."""
+    if run is None:
+        return None
+    import wandb
+
+    if wandb.run is not None:
+        return wandb.run
+    return wandb.init(id=run.id, project=run.project, entity=run.entity, resume="allow", dir=str(run_dir))
+
+
 def _git(repo_root: Path, *args: str) -> str:
     try:
         out = subprocess.run(["git", *args], cwd=repo_root, capture_output=True, text=True, check=True)
@@ -244,6 +255,7 @@ def run_cross_validation(exp, defaults, repo_root, config_path) -> None:
                 save=test_cfg.get("save", True),
             ))
             all_metrics.append(metrics)
+            run = ensure_active_run(run, fold_dir)
             log_test_metrics(run, metrics)
 
         trainer.remove_model()
@@ -323,6 +335,7 @@ def _run_experiment(exp: Dict[str, Any], defaults: Dict[str, Any], repo_root: Pa
             log=test_cfg.get("log", True),
             save=test_cfg.get("save", True),
         ))
+        run = ensure_active_run(run, dst)
         log_test_metrics(run, metrics)
 
     trainer.remove_model()
