@@ -117,6 +117,39 @@ def ensure_active_run(run, run_dir: Path):
     return wandb.init(id=run.id, project=run.project, entity=run.entity, resume="allow", dir=str(run_dir))
 
 
+def find_best_weights(train_dir: Path):
+    weights_dir = train_dir / "weights"
+    if (weights_dir / "best.pt").exists():
+        return weights_dir / "best.pt"
+    candidates = sorted(weights_dir.glob("*.pt*")) if weights_dir.is_dir() else []
+    return candidates[-1] if candidates else None
+
+
+def log_provenance(run, run_dir: Path, train_dir: Path, metrics, repo_root: Path) -> None:
+    """Link the wandb run to the local run dir / weights and attach the weights as a model artifact."""
+    if run is None:
+        return
+    import wandb
+
+    weights = find_best_weights(train_dir)
+    run.config.update({
+        "run_dir": str(run_dir.relative_to(repo_root)),
+        "weights_path": str(weights.relative_to(repo_root)) if weights else None,
+    }, allow_val_change=True)
+    if weights is None:
+        print(f"No weights found under {train_dir / 'weights'}; skipping model artifact")
+        return
+
+    artifact = wandb.Artifact(
+        name=f"model-{run.name}".replace(" ", "_"),
+        type="model",
+        metadata={"git": git_info(repo_root), "run_dir": str(run_dir.relative_to(repo_root)),
+                  **{f"test/{k}": v for k, v in (metrics or {}).items()}},
+    )
+    artifact.add_file(str(weights), name=weights.name)
+    run.log_artifact(artifact, aliases=["best", "latest"])
+
+
 def _git(repo_root: Path, *args: str) -> str:
     try:
         out = subprocess.run(["git", *args], cwd=repo_root, capture_output=True, text=True, check=True)
@@ -245,6 +278,8 @@ def run_cross_validation(exp, defaults, repo_root, config_path) -> None:
         trainer.load_model(**exp.get("load", {}))
         trainer.train(str(split_dir), dst=str(fold_dir / "train"), save=save_flag, **exp.get("params", {}))
 
+        run = ensure_active_run(run, fold_dir)
+        metrics = None
         if test_cfg.get("enabled", True):
             metrics = _to_float(trainer.test(
                 str(split_dir),
@@ -255,8 +290,8 @@ def run_cross_validation(exp, defaults, repo_root, config_path) -> None:
                 save=test_cfg.get("save", True),
             ))
             all_metrics.append(metrics)
-            run = ensure_active_run(run, fold_dir)
             log_test_metrics(run, metrics)
+        log_provenance(run, fold_dir, fold_dir / "train", metrics, repo_root)
 
         trainer.remove_model()
         if run is not None:
@@ -325,6 +360,8 @@ def _run_experiment(exp: Dict[str, Any], defaults: Dict[str, Any], repo_root: Pa
     save_flag = exp.get("save", defaults.get("save", True))
     trainer.train(str(dataset_dir), dst=str(dst), save=save_flag, **train_params)
 
+    run = ensure_active_run(run, dst)
+    metrics = None
     test_cfg = exp.get("test", {})
     if test_cfg.get("enabled", False):
         metrics = _to_float(trainer.test(
@@ -335,8 +372,8 @@ def _run_experiment(exp: Dict[str, Any], defaults: Dict[str, Any], repo_root: Pa
             log=test_cfg.get("log", True),
             save=test_cfg.get("save", True),
         ))
-        run = ensure_active_run(run, dst)
         log_test_metrics(run, metrics)
+    log_provenance(run, dst, dst, metrics, repo_root)
 
     trainer.remove_model()
     if run is not None:
